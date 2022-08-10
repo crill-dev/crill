@@ -9,6 +9,7 @@
 #include <crill/platform.h>
 #include <atomic>
 #include <thread>
+#include <mutex>
 
 #if CRILL_INTEL
   #include <emmintrin.h>
