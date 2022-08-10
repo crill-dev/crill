@@ -16,6 +16,9 @@ TEST_CASE("crill::spin_mutex")
 {
     crill::spin_mutex mtx;
 
+    // TEST: deliberately breaking this test case:
+    REQUIRE(2 + 2 == 5);
+
     SUBCASE("Special member functions")
     {
         STATIC_CHECK(std::is_default_constructible_v<crill::spin_mutex>);
