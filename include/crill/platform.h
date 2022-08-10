@@ -15,13 +15,13 @@
   #define CRILL_64BIT 1
   #define CRILL_ARM_64BIT 1
 #elif defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
-  #define CRILL_INTEL
-  #define CRILL_32BIT
-  #define CRILL_INTEL_32BIT
+  #define CRILL_INTEL 1
+  #define CRILL_32BIT 1
+  #define CRILL_INTEL_32BIT 1
 #elif defined(__x86_64__) || defined(_M_X64)
-  #define CRILL_INTEL
-  #define CRILL_64BIT
-  #define CRILL_INTEL_64BIT
+  #define CRILL_INTEL 1
+  #define CRILL_64BIT 1
+  #define CRILL_INTEL_64BIT 1
 #endif
 
 #endif //CRILL_PLATFORM_H
