@@ -1,0 +1,34 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+  BUILD_DIR: ${{github.workspace}}/cmake-build
+
+jobs:
+  build_and_test:
+    strategy:
+      fail-fast: false # show all errors for each platform, don't cancel jobs on error
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    runs-on: ${{matrix.os}}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure CMake
+        run: cmake -B ${{env.BUILD_DIR}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" .
+        # TODO: run tests on Apple Silicon using self-hosted runner
+
+      - name: Build
+        run: cmake --build ${{env.BUILD_DIR}} --config ${{env.BUILD_TYPE}}
+
+      - name: Test
+        working-directory: ${{env.BUILD_DIR}}
+        run: ctest -C ${{env.BUILD_TYPE}}
