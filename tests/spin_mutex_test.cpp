@@ -72,11 +72,11 @@ TEST_CASE("crill::spin_mutex")
 
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             lock.unlock();
-            while(!stop_other_thread)
+            while (!stop_other_thread)
                 /* wait to be stopped */;
         });
 
-        while(!held_by_other_thread)
+        while (!held_by_other_thread)
             /* wait for other_thread to lock mtx */;
 
         std::unique_lock lock(mtx);
@@ -95,11 +95,11 @@ TEST_CASE("crill::spin_mutex")
             std::scoped_lock lock(mtx);
             held_by_other_thread = true;
 
-            while(!stop_other_thread)
+            while (!stop_other_thread)
                 /* wait to be stopped */;
         });
 
-        while(!held_by_other_thread)
+        while (!held_by_other_thread)
             /* wait for other_thread to lock mtx */;
 
         std::unique_lock lock(mtx, std::try_to_lock);
