@@ -32,12 +32,16 @@ namespace crill
 // which doesn't have a wait-free unlock() as std::mutex::unlock() may perform
 // a system call to wake up a waiting thread.
 //
-// lock() is implemented using a progressive back-off strategy, rather than just
-// busy waiting like in a simple spinlock, to prevent wasting energy and
-// allow other threads to progress. The parameters of the progressive back-off
-// are tuned for the scenario in a typical audio app (real-time thread is
-// being called on a callback every 1-10 ms) but are useful for other scenarios
-// as well.
+// On Intel as well as 64-bit ARM, lock() is implemented using a progressive
+// back-off strategy, rather than just spin (busy-wait) like in a naive spinlock,
+// to prevent wasting energy and allow other threads to progress.
+// The parameters of the progressive back-off are tuned for the scenario in a
+// typical audio app (real-time thread is being called on a callback every 1-10 ms)
+// but are useful for other scenarios as well.
+//
+// On platforms other than Intel and 64-bit ARM, progressive backoff is currently
+// not implemented and lock() uses a naive fallback implementation that just spins
+// (busy-waits).
 //
 // crill::spin_mutex is not recursive; repeatedly locking it on the same thread
 // is undefined behaviour (in practice, it will probably deadlock your app).
@@ -48,61 +52,17 @@ public:
     // Preconditions: The current thread does not already hold the lock.
     void lock() noexcept
     {
-        // Stage 1
-        for (int i = 0; i < stage_reps[0]; ++i)
-        {
-            if (try_lock())
-                return;
-        }
-
-        // Stage 2
-        for (int i = 0; i < stage_reps[1]; ++i)
-        {
-            if (try_lock())
-                return;
-
-          #if CRILL_INTEL
-            _mm_pause();
-          #elif CRILL_ARM_64BIT
-            // The middle stage is not used on ARM, because there is no "short CPU pause"
-            // instruction like _mm_pause(). __wfe() typically pauses for ~ 1.3 us if the
-            // event register is not set.
-            assert(false);
-          #else
-            #error "crill::spin_mutex not implemented for the platform being compiled"
-          #endif
-        }
-
-        // Stage 3
-        while (true)
-        {
-            for (int i = 0; i < stage_reps[2]; ++i)
-            {
-                if (try_lock())
-                    return;
-
-              #if CRILL_INTEL
-                // Do not roll these into a loop: not every compiler unrolls it
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-                _mm_pause();
-              #elif CRILL_ARM_64BIT
-                __wfe();
-              #else
-                #error "Unsupported platform!"
-              #endif
-            }
-
-            // waiting longer than we should, let's give other threads a chance to recover
-            std::this_thread::yield();
-        }
+      #if CRILL_INTEL
+        lock_impl_intel<5, 10, 3000>();
+        // approx. 5x5 ns (= 25 ns), 10x40 ns (= 400 ns), and 3000x350 ns (~ 1 ms),
+        // respectively, when measured on a 2.9 GHz Intel i9
+      #elif CRILL_ARM_64BIT
+        lock_impl_armv8<2, 750>();
+        // approx. 2x10 ns (= 20 ns) and 750x1333 ns (~ 1 ms), respectively, on an
+        // Apple Silicon Mac or an armv8 based phone.
+      #else
+        lock_impl_no_progressive_backoff();
+      #endif
     }
 
     // Effects: Attempts to acquire the lock without blocking.
@@ -124,19 +84,80 @@ public:
 private:
     std::atomic_flag flag = ATOMIC_FLAG_INIT;
 
-    // number of repetitions for each progressive backoff stage
-    static constexpr std::size_t stage_reps[] =
-      #if CRILL_INTEL
-        // approx. 5x5 ns (= 25 ns), 10x40 ns (= 400 ns), and 3000x350 ns (~ 1 ms),
-        // respectively, when measured on a 2.9 GHz Intel i9
-        {5, 10, 3000};
-      #elif CRILL_ARM_64BIT
-        // approx. 2x10 ns (= 20 ns) and 750x1333 ns (~ 1 ms), respectively, on an
-        // Apple Silicon Mac or an armv8 based phone. No middle stage.
-        {2, 0, 750};
-      #else
-        #error "crill::spin_mutex not implemented for the platform being compiled"
-      #endif
+  #if CRILL_INTEL
+    template <std::size_t N0, std::size_t N1, std::size_t N2>
+    void lock_impl_intel()
+    {
+        for (int i = 0; i < N0; ++i)
+        {
+            if (try_lock())
+                return;
+        }
+
+        for (int i = 0; i < N1; ++i)
+        {
+            if (try_lock())
+                return;
+
+            _mm_pause();
+        }
+
+        while (true)
+        {
+            for (int i = 0; i < N2; ++i)
+            {
+                if (try_lock())
+                    return;
+
+                // Do not roll these into a loop: not every compiler unrolls it
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+                _mm_pause();
+            }
+
+            // waiting longer than we should, let's give other threads a chance to recover
+            std::this_thread::yield();
+        }
+    }
+  #elif CRILL_ARM_64BIT
+    template <std::size_t N0, std::size_t N1>
+    void lock_impl_armv8() noexcept
+    {
+        for (int i = 0; i < N0; ++i)
+        {
+            if (try_lock())
+                return;
+        }
+
+        while (true)
+        {
+            for (int i = 0; i < N1; ++i)
+            {
+                if (try_lock())
+                    return;
+
+                __wfe();
+            }
+
+            // waiting longer than we should, let's give other threads a chance to recover
+            std::this_thread::yield();
+        }
+    }
+  #else
+    // fallback for unsupported platforms
+    void lock_impl_no_progressive_backoff() noexcept
+    {
+        while (!try_lock())
+            /* spin */;
+    }
+  #endif
 };
 
 } // namespace crill
