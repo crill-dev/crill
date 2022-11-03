@@ -3,27 +3,18 @@
 // Distributed under the Boost Software License, Version 1.0.
 //(See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
 
-#include <doctest/doctest.h>
 #include <crill/spin_mutex.h>
-
-// Helper for doctest static tests:
-// (see https://github.com/doctest/doctest/issues/250)
-// TODO: put this into a header common to all tests?
-#define STATIC_CHECK(...) static_assert(__VA_ARGS__); CHECK(__VA_ARGS__);
-#define STATIC_CHECK_FALSE(...) static_assert(!__VA_ARGS__); CHECK_FALSE(__VA_ARGS__);
+#include <doctest/doctest.h>
 
 TEST_CASE("crill::spin_mutex")
 {
-    crill::spin_mutex mtx;
+    static_assert(std::is_default_constructible_v<crill::spin_mutex>);
+    static_assert(!std::is_copy_constructible_v<crill::spin_mutex>);
+    static_assert(!std::is_copy_assignable_v<crill::spin_mutex>);
+    static_assert(!std::is_move_constructible_v<crill::spin_mutex>);
+    static_assert(!std::is_move_assignable_v<crill::spin_mutex>);
 
-    SUBCASE("Special member functions")
-    {
-        STATIC_CHECK(std::is_default_constructible_v<crill::spin_mutex>);
-        STATIC_CHECK_FALSE(std::is_copy_constructible_v<crill::spin_mutex>);
-        STATIC_CHECK_FALSE(std::is_copy_assignable_v<crill::spin_mutex>);
-        STATIC_CHECK_FALSE(std::is_move_constructible_v<crill::spin_mutex>);
-        STATIC_CHECK_FALSE(std::is_move_assignable_v<crill::spin_mutex>);
-    }
+    crill::spin_mutex mtx;
 
     SUBCASE("If mutex is not locked, try_lock succeeds")
     {
