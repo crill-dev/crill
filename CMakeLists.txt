@@ -5,7 +5,7 @@ include_directories(include)
 
 option(ENABLE_ASAN  "Enable address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable UB sanitizer" OFF)
-option(ENABLE_THREADSAN "Enable thread sanitizer" ON)
+option(ENABLE_THREADSAN "Enable thread sanitizer" OFF)
 
 if(ENABLE_ASAN)
     if (NOT MSVC)
