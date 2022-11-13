@@ -34,7 +34,10 @@ if(ENABLE_THREADSAN)
 endif()
 
 add_executable(tests
-        tests/main.cpp tests/spin_mutex_test.cpp tests/reclaim_object_test.cpp tests/tests.h include/crill/atomic_unique_ptr.h tests/atomic_unique_ptr_test.cpp include/crill/spin_on_write_object.h include/crill/reclaim_on_write_object.h)
+    tests/main.cpp
+    tests/spin_mutex_test.cpp
+    tests/reclaim_object_test.cpp
+    tests/atomic_unique_ptr_test.cpp)
 
 target_compile_features(tests PRIVATE cxx_std_17)
 
