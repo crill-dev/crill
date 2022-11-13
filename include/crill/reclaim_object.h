@@ -20,8 +20,8 @@ namespace crill
 // crill::reclaim_object stores a value of type T and provides concurrent
 // read and write access to it. Multiple readers and writers are supported.
 //
-// Readers are guaranteed  to always be wait-free. Readers will never
-// block writers, but writers may block other writers.
+// Readers are guaranteed to always be wait-free. Readers will never block
+// writers, but writers may block other writers.
 //
 // Overwritten values are put on a "zombie list". Values on the zombie list
 // that are no longer referred to by any reader can be reclaimed by calling
@@ -71,7 +71,7 @@ public:
             assert(rdr.min_epoch == 0);
             rdr.min_epoch.store(rdr.obj.current_epoch.load());
 
-            value_read = rdr.obj.value.get();
+            value_read = rdr.obj.value.load();
             assert(value_read);
         }
 
@@ -155,7 +155,7 @@ public:
     public:
         write_ptr(reclaim_object& obj)
           : obj(obj),
-            new_value(std::make_unique<T>(*obj.value.get()))
+            new_value(std::make_unique<T>(*obj.value.load()))
         {}
 
         ~write_ptr()

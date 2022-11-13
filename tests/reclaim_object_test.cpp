@@ -15,7 +15,7 @@ static_assert(!std::is_move_constructible_v<crill::reclaim_object<int>>);
 static_assert(!std::is_copy_assignable_v<crill::reclaim_object<int>>);
 static_assert(!std::is_move_assignable_v<crill::reclaim_object<int>>);
 
-TEST_CASE("rcu_object default constructor")
+TEST_CASE("reclaim_object default constructor")
 {
     struct test_t
     {
@@ -28,14 +28,14 @@ TEST_CASE("rcu_object default constructor")
     CHECK(reader.get_value().i == 42);
 }
 
-TEST_CASE("rcu_object emplace constructor")
+TEST_CASE("reclaim_object emplace constructor")
 {
     crill::reclaim_object<std::string> obj(3, 'x');
     auto reader = obj.get_reader();
     CHECK(reader.get_value() == "xxx");
 }
 
-TEST_CASE("Access rcu_object value via rcu_reader::handle")
+TEST_CASE("Access reclaim_object value via rcu_reader::handle")
 {
     crill::reclaim_object<std::string> obj(3, 'x');
     auto reader = obj.get_reader();
@@ -58,7 +58,7 @@ TEST_CASE("Access rcu_object value via rcu_reader::handle")
     }
 }
 
-TEST_CASE("Update rcu_object")
+TEST_CASE("Update reclaim_object")
 {
     crill::reclaim_object<std::string> obj("hello");
     auto reader = obj.get_reader();
@@ -78,7 +78,7 @@ TEST_CASE("Update rcu_object")
     }
 }
 
-TEST_CASE("Modify rcu_object via rcu_writer::handle")
+TEST_CASE("Modify reclaim_object via rcu_writer::handle")
 {
     struct test_t
     {
@@ -105,7 +105,7 @@ TEST_CASE("Modify rcu_object via rcu_writer::handle")
     }
 }
 
-TEST_CASE("rcu_object reclamation")
+TEST_CASE("reclaim_object reclamation")
 {
     using namespace crill::test;
 
@@ -250,6 +250,8 @@ TEST_CASE("Reads, write, and reclaim can all be executed concurrently")
     garbage_collector.join();
 
     CHECK(obj.get_reader().get_value() == "9999");
+
+    // TODO: this sometimes fails, probably because some reders have not read anything
     for (const auto& value : read_results)
         CHECK(value.size() > 0);
 }
