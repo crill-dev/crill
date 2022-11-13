@@ -8,31 +8,54 @@
 
 #include <memory>
 #include <atomic>
+#include <optional>
 
 namespace crill
 {
 
-// crill::atomic_unique_ptr wraps a std::unique_ptr and allows to
-// replace this std::unique_ptr with a different std::unique_ptr
-// as well as obtain the current pointer value as wait-free atomic
-// operations. Custom deleters are not supported.
+// crill::atomic_unique_ptr wraps a std::unique_ptr and provides some
+// atomic wait-free operations on the underlying pointer.
+// This can be useful for atomic pointer swaps when building lock-free
+// algorithms without sacrificing the lifetime management semantics of
+// unique_ptr. Custom deleters are not supported.
 template <typename T>
 class atomic_unique_ptr
 {
+    // TODO: support std::memory_order parameters
+
 public:
-    // Effects: Constructs an empty atomic_unique_ptr.
+    // Effects: Constructs an atomic_unique_ptr containing an empty
+    // unique_ptr.
     atomic_unique_ptr() = default;
 
-    // Effects: Constructs an atomic_unique_ptr and stores the passed-in
-    // unique_ptr into it.
+    // Effects: Constructs an atomic_unique_ptr containing the passed-in
+    // unique_ptr.
     atomic_unique_ptr(std::unique_ptr<T> uptr)
       : ptr(uptr.release())
     {}
 
+    // Effects: Constructs an atomic_unique_ptr containing a new unique_ptr
+    // managing an object constructed from the given constructor arguments.
+    template <typename... Args>
+    atomic_unique_ptr(Args... args)
+      : atomic_unique_ptr(std::make_unique<T>(std::forward<Args>(args)...))
+    {
+    }
+
     // Effects: Deletes the object managed by the unique_ptr.
     ~atomic_unique_ptr()
     {
-        delete get();
+        delete load();
+    }
+
+    // Returns: a pointer to the managed object.
+    // Non-blocking guarantees: wait-free.
+    // Note: get() itself is race-free, but the returned pointer will
+    // dangle if the underlying unique_ptr has deleted the managed object
+    // in the meantime!
+    T* load() const
+    {
+        return ptr.load();
     }
 
     // Effects: Atomically swaps the currently stored unique_ptr with a
@@ -44,17 +67,50 @@ public:
         return std::unique_ptr<T>(ptr.exchange(desired.release()));
     }
 
-    // Returns: a pointer to the managed object.
+    // Effects: If the address of the managed object is equal to expected,
+    // replaces the currently stored unique_ptr with desired by moving from
+    // desired. Otherwise, changes the value of expected to the address of
+    // the managed object.
+    // Returns: If the compare succeeded, the previously stored unique_ptr;
+    // otherwise, an empty optional.
     // Non-blocking guarantees: wait-free.
-    // Note: get() itself is race-free, but the returned pointer will
-    // dangle if the underlying unique_ptr has deleted the managed object
-    // in the meantime!
-    T* get() const
+    std::optional<std::unique_ptr<T>>
+    compare_exchange_strong(T*& expected, std::unique_ptr<T>& desired)
     {
-        return ptr.load();
+        return compare_exchange_impl([this](T*& expected, T* desired){
+            return ptr.compare_exchange_strong(expected, desired);
+        }, expected, desired);
+    }
+
+    // Effects: Equivalent to compare_exchange_strong, but the comparison
+    // may spuriously fail. On some platforms, this gives better performance.
+    // Use this version when calling compare_exchange in a loop.
+    // Non-blocking guarantees: wait-free.
+    std::optional<std::unique_ptr<T>>
+    compare_exchange_weak(T*& expected, std::unique_ptr<T>& desired)
+    {
+        return compare_exchange_impl([this](T*& expected, T* desired){
+            return ptr.compare_exchange_weak(expected, desired);
+        }, expected, desired);
     }
 
 private:
+    template <typename FuncT>
+    std::optional<std::unique_ptr<T>>
+    compare_exchange_impl(FuncT&& cx_func, T*& expected, std::unique_ptr<T>& desired)
+    {
+        auto* desired_raw = desired.get();
+        if (cx_func(expected, desired_raw))
+        {
+            desired.release();
+            return std::unique_ptr<T>(expected);
+        }
+        else
+        {
+            return {};
+        }
+    }
+
     std::atomic<T*> ptr = nullptr;
     static_assert(std::atomic<T*>::is_always_lock_free);
 };

@@ -5,13 +5,14 @@
 
 #include <vector>
 #include <thread>
+#include <string>
 #include <crill/atomic_unique_ptr.h>
 #include "tests.h"
 
 TEST_CASE("Default constructor")
 {
     crill::atomic_unique_ptr<int> auptr;
-    CHECK(auptr.get() == nullptr);
+    CHECK(auptr.load() == nullptr);
 }
 
 TEST_CASE("Pointer constructor")
@@ -20,8 +21,15 @@ TEST_CASE("Pointer constructor")
     int* ptr = uptr.get();
 
     crill::atomic_unique_ptr<int> auptr(std::move(uptr));
-    CHECK(auptr.get() == ptr);
+    CHECK(auptr.load() == ptr);
     CHECK(uptr == nullptr);
+}
+
+TEST_CASE("Emplacement constructor")
+{
+    crill::atomic_unique_ptr<std::string> auptr(3, 'x');
+    auto* ptr = auptr.load();
+    CHECK(*ptr == "xxx");
 }
 
 TEST_CASE("Atomic exchange")
@@ -34,7 +42,7 @@ TEST_CASE("Atomic exchange")
 
     crill::atomic_unique_ptr<int> auptr(std::move(uptr1));
     auto uptr3 = auptr.exchange(std::move(uptr2));
-    CHECK(auptr.get() == ptr2);
+    CHECK(auptr.load() == ptr2);
     CHECK(uptr3.get() == ptr1);
 }
 
@@ -66,6 +74,57 @@ TEST_CASE("Atomic exchange from multiple threads")
     stop.store(true);
     for (auto& thread : threads)
         thread.join();
+}
+
+TEST_CASE("Compare-exchange")
+{
+    auto uptr1 = std::make_unique<int>();
+    int* ptr1 = uptr1.get();
+
+    auto uptr2 = std::make_unique<int>();
+    int* ptr2 = uptr2.get();
+
+    crill::atomic_unique_ptr<int> auptr(std::move(uptr1));
+
+    SUBCASE("Success - strong")
+    {
+        auto result = auptr.compare_exchange_strong(ptr1, uptr2);
+        CHECK(uptr2 == nullptr);
+        CHECK(result->get() == ptr1);
+    }
+
+    SUBCASE("Success - weak")
+    {
+        std::optional<std::unique_ptr<int>> result;
+        do
+        {
+            result = auptr.compare_exchange_weak(ptr1, uptr2);
+        } while (!result);
+
+        CHECK(uptr2 == nullptr);
+        CHECK(result->get() == ptr1);
+    }
+
+    SUBCASE("Failure - strong")
+    {
+        auto uptr3 = std::make_unique<int>();
+        auto result = auptr.compare_exchange_strong(ptr2, uptr3);
+        CHECK(!result);
+        CHECK(ptr2 == ptr1);
+    }
+
+    SUBCASE("Failure - weak")
+    {
+        auto uptr3 = std::make_unique<int>();
+        auto result = auptr.compare_exchange_weak(ptr2, uptr3);
+        CHECK(!result);
+        CHECK(ptr2 == ptr1);
+    }
+}
+
+TEST_CASE("Compare-exchange from multiple threads")
+{
+    // TODO: implement
 }
 
 TEST_CASE("Destructor deletes managed object")
