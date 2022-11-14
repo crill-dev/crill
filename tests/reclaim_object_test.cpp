@@ -4,18 +4,20 @@
 // (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
 
 #include <crill/reclaim_object.h>
+#include <crill/utility.h>
 #include "tests.h"
-
-// TODO: move this elsewhere
-std::size_t crill::test::counted_t::instances_created = 0;
-std::size_t crill::test::counted_t::instances_alive = 0;
 
 static_assert(!std::is_copy_constructible_v<crill::reclaim_object<int>>);
 static_assert(!std::is_move_constructible_v<crill::reclaim_object<int>>);
 static_assert(!std::is_copy_assignable_v<crill::reclaim_object<int>>);
 static_assert(!std::is_move_assignable_v<crill::reclaim_object<int>>);
 
-TEST_CASE("reclaim_object default constructor")
+static_assert(!std::is_copy_constructible_v<crill::reclaim_object<int>>);
+static_assert(!std::is_move_constructible_v<crill::reclaim_object<int>>);
+static_assert(!std::is_copy_assignable_v<crill::reclaim_object<int>>);
+static_assert(!std::is_move_assignable_v<crill::reclaim_object<int>>);
+
+TEST_CASE("reclaim_object::reclaim_object()")
 {
     struct test_t
     {
@@ -28,57 +30,79 @@ TEST_CASE("reclaim_object default constructor")
     CHECK(reader.get_value().i == 42);
 }
 
-TEST_CASE("reclaim_object emplace constructor")
+TEST_CASE("reclaim_object::reclaim_object(Args...)")
 {
     crill::reclaim_object<std::string> obj(3, 'x');
     auto reader = obj.get_reader();
     CHECK(reader.get_value() == "xxx");
 }
 
-TEST_CASE("Access reclaim_object value via rcu_reader::handle")
+TEST_CASE("reclaim_object::read_ptr")
 {
     crill::reclaim_object<std::string> obj(3, 'x');
     auto reader = obj.get_reader();
-    auto handle = reader.read_lock();
+
+    SUBCASE("read_ptr is not copyable or movable")
+    {
+        auto read_ptr = reader.read_lock();
+        static_assert(!std::is_copy_constructible_v<decltype(read_ptr)>);
+        static_assert(!std::is_copy_assignable_v<decltype(read_ptr)>);
+        static_assert(!std::is_move_constructible_v<decltype(read_ptr)>);
+        static_assert(!std::is_move_assignable_v<decltype(read_ptr)>);
+    }
 
     SUBCASE("Dereference")
     {
-        CHECK(*handle == "xxx");
+        auto read_ptr = reader.read_lock();
+        CHECK(*read_ptr == "xxx");
     }
 
     SUBCASE("Member access operator")
     {
-        CHECK(handle->size() == 3);
+        auto read_ptr = reader.read_lock();
+        CHECK(read_ptr->size() == 3);
     }
 
     SUBCASE("Access is read-only")
     {
-        static_assert(std::is_same_v<decltype(handle.operator*()), const std::string&>);
-        static_assert(std::is_same_v<decltype(handle.operator->()), const std::string*>);
+        auto read_ptr = reader.read_lock();
+        static_assert(std::is_same_v<decltype(read_ptr.operator*()), const std::string&>);
+        static_assert(std::is_same_v<decltype(read_ptr.operator->()), const std::string*>);
+    }
+
+    SUBCASE("Multiple read_ptrs from same reader are OK as long as lifetimes do not overlap")
+    {
+        {
+            auto read_ptr = reader.read_lock();
+        }
+        {
+            auto read_ptr = reader.read_lock();
+            CHECK(*read_ptr == "xxx");
+        }
     }
 }
 
-TEST_CASE("Update reclaim_object")
+TEST_CASE("reclaim_object::update")
 {
     crill::reclaim_object<std::string> obj("hello");
     auto reader = obj.get_reader();
 
-    SUBCASE("read handle obtained before update reads old value after update")
+    SUBCASE("read read_ptr obtained before update reads old value after update")
     {
-        auto handle = reader.read_lock();
+        auto read_ptr = reader.read_lock();
         obj.update(3, 'x');
-        CHECK(*handle == "hello");
+        CHECK(*read_ptr == "hello");
     }
 
-    SUBCASE("read handle obtained after update reads new value")
+    SUBCASE("read read_ptr obtained after update reads new value")
     {
         obj.update(3, 'x');
-        auto handle = reader.read_lock();
-        CHECK(*handle == "xxx");
+        auto read_ptr = reader.read_lock();
+        CHECK(*read_ptr == "xxx");
     }
 }
 
-TEST_CASE("Modify reclaim_object via rcu_writer::handle")
+TEST_CASE("reclaim_object::write_ptr")
 {
     struct test_t
     {
@@ -88,24 +112,33 @@ TEST_CASE("Modify reclaim_object via rcu_writer::handle")
     crill::reclaim_object<test_t> obj;
     auto reader = obj.get_reader();
 
+    SUBCASE("read_ptr is not copyable or movable")
+    {
+        auto write_ptr = obj.write_lock();
+        static_assert(!std::is_copy_constructible_v<decltype(write_ptr)>);
+        static_assert(!std::is_copy_assignable_v<decltype(write_ptr)>);
+        static_assert(!std::is_move_constructible_v<decltype(write_ptr)>);
+        static_assert(!std::is_move_assignable_v<decltype(write_ptr)>);
+    }
+
     SUBCASE("Modifications do not get published while write_ptr is still alive")
     {
-        auto handle = obj.write_lock();
-        handle->j = 4;
+        auto write_ptr = obj.write_lock();
+        write_ptr->j = 4;
         CHECK(reader.get_value().j == 0);
     }
 
     SUBCASE("Modifications get published when write_ptr goes out of scope")
     {
         {
-            auto handle = obj.write_lock();
-            handle->j = 4;
+            auto write_ptr = obj.write_lock();
+            write_ptr->j = 4;
         }
         CHECK(reader.get_value().j == 4);
     }
 }
 
-TEST_CASE("reclaim_object reclamation")
+TEST_CASE("reclaim_object::reclaim")
 {
     using namespace crill::test;
 
@@ -162,7 +195,49 @@ TEST_CASE("reclaim_object reclamation")
     }
 }
 
-TEST_CASE("Readers can be created and destroyed concurrently")
+TEST_CASE("reclaim_object reader does not block writer")
+{
+    crill::reclaim_object<int> obj(42);
+
+    std::atomic<bool> has_read_lock = false;
+    std::atomic<bool> start_writer = false;
+    std::atomic<bool> give_up_read_lock = false;
+    std::atomic<bool> obj_updated = false;
+
+    std::thread reader_thread([&]{
+        auto reader = obj.get_reader();
+        auto read_ptr = reader.read_lock();
+
+        has_read_lock = true;
+        start_writer = true;
+
+        while (!give_up_read_lock)
+            std::this_thread::yield();
+
+        CHECK(obj_updated);
+        CHECK(*read_ptr == 42); // must still read old value here!
+    });
+
+    std::thread writer_thread([&]{
+        while (!start_writer)
+            std::this_thread::yield();
+
+        obj.update(43); // will reach this line while read_lock is held
+        obj_updated = true;
+    });
+
+    while (!has_read_lock)
+        std::this_thread::yield();
+
+    while (!obj_updated)
+        std::this_thread::yield();
+
+    give_up_read_lock = true;
+    reader_thread.join();
+    writer_thread.join();
+}
+
+TEST_CASE("reclaim_object readers can be created and destroyed concurrently")
 {
     crill::reclaim_object<int> obj(42);
     std::vector<std::thread> reader_threads;
@@ -193,34 +268,39 @@ TEST_CASE("Readers can be created and destroyed concurrently")
         CHECK(value == 42);
 }
 
-TEST_CASE("Reads, write, and reclaim can all be executed concurrently")
+TEST_CASE("reclaim_object reads, writes, and reclaim can all run concurrently")
 {
     crill::reclaim_object<std::string> obj("0");
     std::vector<std::thread> reader_threads;
-    const std::size_t num_readers = 20;
+    const std::size_t num_readers = 5;
     std::vector<std::string> read_results(num_readers);
 
     std::atomic<bool> stop = false;
-    std::atomic<std::size_t> threads_running = 0;
+    std::atomic<std::size_t> readers_started = 0;
+    std::atomic<std::size_t> writers_started = 0;
+    std::atomic<bool> garbage_collector_started = false;
 
     for (std::size_t i = 0; i < num_readers; ++i)
     {
         reader_threads.emplace_back([&]{
             auto reader = obj.get_reader();
             std::string value;
+            std::size_t thread_idx = readers_started;
 
-            auto thread_idx = threads_running.fetch_add(1);
             while (!stop)
+            {
                 read_results[thread_idx] = *reader.read_lock();
+                crill::call_once_per_thread([&] { ++readers_started; });
+            }
         });
     }
 
     std::vector<std::thread> writer_threads;
-    const std::size_t num_writers = 4;
+    const std::size_t num_writers = 2;
     for (std::size_t i = 0; i < num_writers; ++i)
     {
         reader_threads.emplace_back([&]{
-            threads_running.fetch_add(1);
+            writers_started.fetch_add(1);
 
             while (!stop)
                 for (int i = 0; i < 10000; ++i)
@@ -229,13 +309,19 @@ TEST_CASE("Reads, write, and reclaim can all be executed concurrently")
     }
 
     auto garbage_collector = std::thread([&]{
-        threads_running.fetch_add(1);
+        garbage_collector_started = true;
         while (!stop) {
             obj.reclaim();
         }
     });
 
-    while (threads_running.load() < num_readers + num_writers + 1)
+    while (readers_started < num_readers)
+        std::this_thread::yield();
+
+    while (writers_started < num_writers)
+        std::this_thread::yield();
+
+    while (!garbage_collector_started)
         std::this_thread::yield();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -249,9 +335,10 @@ TEST_CASE("Reads, write, and reclaim can all be executed concurrently")
 
     garbage_collector.join();
 
-    CHECK(obj.get_reader().get_value() == "9999");
-
-    // TODO: this sometimes fails, probably because some reders have not read anything
+    // every reader read some values that were written by writers:
     for (const auto& value : read_results)
         CHECK(value.size() > 0);
+
+    // value is the last value written:
+    CHECK(obj.get_reader().get_value() == "9999");
 }

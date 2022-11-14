@@ -3,7 +3,7 @@ project(crill)
 
 include_directories(include)
 
-option(ENABLE_ASAN  "Enable address sanitizer" OFF)
+option(ENABLE_ASAN "Enable address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable UB sanitizer" OFF)
 option(ENABLE_THREADSAN "Enable thread sanitizer" OFF)
 
@@ -37,7 +37,9 @@ add_executable(tests
     tests/main.cpp
     tests/spin_mutex_test.cpp
     tests/reclaim_object_test.cpp
-    tests/atomic_unique_ptr_test.cpp)
+    tests/reclaim_on_write_object_test.cpp
+    tests/atomic_unique_ptr_test.cpp
+    tests/utility_test.cpp)
 
 target_compile_features(tests PRIVATE cxx_std_17)
 

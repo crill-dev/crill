@@ -69,7 +69,9 @@ public:
           : rdr(rdr)
         {
             assert(rdr.min_epoch == 0);
+
             rdr.min_epoch.store(rdr.obj.current_epoch.load());
+            assert(rdr.min_epoch =! 0);
 
             value_read = rdr.obj.value.load();
             assert(value_read);
@@ -92,6 +94,11 @@ public:
             assert(value_read);
             return value_read;
         }
+
+        read_ptr(read_ptr&&) = delete;
+        read_ptr& operator=(read_ptr&&) = delete;
+        read_ptr(const read_ptr&) = delete;
+        read_ptr& operator=(const read_ptr&) = delete;
 
     private:
         reader& rdr;
@@ -156,15 +163,32 @@ public:
         write_ptr(reclaim_object& obj)
           : obj(obj),
             new_value(std::make_unique<T>(*obj.value.load()))
-        {}
+        {
+            assert(new_value);
+        }
 
         ~write_ptr()
         {
+            assert(new_value);
             obj.exchange_and_retire(std::move(new_value));
         }
 
-        T& operator*() { return *new_value; }
-        T* operator->() { return new_value.get(); }
+        T& operator*()
+        {
+            assert(new_value);
+            return *new_value;
+        }
+
+        T* operator->()
+        {
+            assert(new_value);
+            return new_value.get();
+        }
+
+        write_ptr(write_ptr&&) = delete;
+        write_ptr& operator=(write_ptr&&) = delete;
+        write_ptr(const write_ptr&) = delete;
+        write_ptr& operator=(const write_ptr&) = delete;
 
     private:
         reclaim_object& obj;

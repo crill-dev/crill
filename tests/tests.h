@@ -11,6 +11,7 @@
 
 namespace crill::test
 {
+    // Helper to track constructor and destructor calls
     struct counted_t
     {
         static void reset() { instances_created = 0; instances_alive = 0; }
