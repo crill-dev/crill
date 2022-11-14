@@ -53,18 +53,18 @@ public:
     // Note: get() itself is race-free, but the returned pointer will
     // dangle if the underlying unique_ptr has deleted the managed object
     // in the meantime!
-    T* load() const
+    T* load(std::memory_order mo = std::memory_order_seq_cst) const
     {
-        return ptr.load();
+        return ptr.load(mo);
     }
 
     // Effects: Atomically swaps the currently stored unique_ptr with a
     // new unique_ptr.
     // Returns: the previously stored unique_ptr.
     // Non-blocking guarantees: wait-free.
-    std::unique_ptr<T> exchange(std::unique_ptr<T> desired)
+    std::unique_ptr<T> exchange(std::unique_ptr<T> desired, std::memory_order mo = std::memory_order_seq_cst)
     {
-        return std::unique_ptr<T>(ptr.exchange(desired.release()));
+        return std::unique_ptr<T>(ptr.exchange(desired.release(), mo));
     }
 
     // Effects: If the address of the managed object is equal to expected,
@@ -75,11 +75,10 @@ public:
     // otherwise, an empty optional.
     // Non-blocking guarantees: wait-free.
     std::optional<std::unique_ptr<T>>
-    compare_exchange_strong(T*& expected, std::unique_ptr<T>& desired)
+    compare_exchange_strong(T*& expected, std::unique_ptr<T>& desired, std::memory_order mo = std::memory_order_seq_cst)
     {
-        return compare_exchange_impl([this](T*& expected, T* desired){
-            return ptr.compare_exchange_strong(expected, desired);
-        }, expected, desired);
+        return compare_exchange_impl(
+            &std::atomic<T*>::compare_exchange_strong, expected, desired, mo);
     }
 
     // Effects: Equivalent to compare_exchange_strong, but the comparison
@@ -87,20 +86,19 @@ public:
     // Use this version when calling compare_exchange in a loop.
     // Non-blocking guarantees: wait-free.
     std::optional<std::unique_ptr<T>>
-    compare_exchange_weak(T*& expected, std::unique_ptr<T>& desired)
+    compare_exchange_weak(T*& expected, std::unique_ptr<T>& desired, std::memory_order mo = std::memory_order_seq_cst)
     {
-        return compare_exchange_impl([this](T*& expected, T* desired){
-            return ptr.compare_exchange_weak(expected, desired);
-        }, expected, desired);
+        return compare_exchange_impl(
+            &std::atomic<T*>::compare_exchange_weak, expected, desired, mo);
     }
 
 private:
-    template <typename FuncT>
+    using cx_fptr = bool(std::atomic<T*>::*)(T*&, T*, std::memory_order);
+
     std::optional<std::unique_ptr<T>>
-    compare_exchange_impl(FuncT&& cx_func, T*& expected, std::unique_ptr<T>& desired)
+    compare_exchange_impl(cx_fptr cx, T*& expected, std::unique_ptr<T>& desired, std::memory_order mo)
     {
-        auto* desired_raw = desired.get();
-        if (cx_func(expected, desired_raw))
+        if (auto* desired_raw = desired.get(); (ptr.*cx)(expected, desired_raw, mo))
         {
             desired.release();
             return std::unique_ptr<T>(expected);
