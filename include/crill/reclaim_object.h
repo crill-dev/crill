@@ -65,7 +65,7 @@ public:
     class read_ptr
     {
     public:
-        read_ptr(reader& rdr)
+        read_ptr(reader& rdr) noexcept
           : rdr(rdr)
         {
             assert(rdr.min_epoch == 0);
@@ -121,14 +121,14 @@ public:
         // Returns: a copy of the current value.
         // Non-blocking guarantees: wait-free if the copy constructor of
         // T is wait-free.
-        T get_value()
+        T get_value() noexcept(std::is_nothrow_copy_constructible_v<T>)
         {
             return *read_lock();
         }
 
         // Returns: a read_ptr giving read access to the current value.
         // Non-blocking guarantees: wait-free.
-        read_ptr read_lock()
+        read_ptr read_lock() noexcept
         {
             return read_ptr(*this);
         }
@@ -179,7 +179,7 @@ public:
             return *new_value;
         }
 
-        T* operator->()
+        T* operator->() noexcept
         {
             assert(new_value);
             return new_value.get();
@@ -248,7 +248,7 @@ private:
         readers.erase(iter);
     }
 
-    bool has_readers_using_epoch(std::uint64_t epoch)
+    bool has_readers_using_epoch(std::uint64_t epoch) noexcept
     {
         std::scoped_lock lock(readers_mtx);
         return std::any_of(readers.begin(), readers.end(), [epoch](auto* reader){
