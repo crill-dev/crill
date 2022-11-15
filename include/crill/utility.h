@@ -10,13 +10,13 @@ namespace crill
 {
 
 template <typename F>
-void call_once(F&& f)
+void call_once(F&& f) noexcept(noexcept(f()))
 {
     static bool _ = [&]{ f(); return true; }();
 }
 
 template <typename F>
-void call_once_per_thread(F&& f)
+void call_once_per_thread(F&& f) noexcept(noexcept(f()))
 {
     static thread_local bool _ = [&]{ f(); return true; }();
 }
