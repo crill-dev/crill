@@ -300,11 +300,13 @@ TEST_CASE("reclaim_object reads, writes, and reclaim can all run concurrently")
     for (std::size_t i = 0; i < num_writers; ++i)
     {
         reader_threads.emplace_back([&]{
-            writers_started.fetch_add(1);
-
             while (!stop)
-                for (int i = 0; i < 10000; ++i)
+            {
+                for (int i = 0; i < 1000; ++i)
                     obj.update(std::to_string(i));
+
+                crill::call_once_per_thread([&] { ++writers_started; });
+            }
         });
     }
 
@@ -340,5 +342,5 @@ TEST_CASE("reclaim_object reads, writes, and reclaim can all run concurrently")
         CHECK(value.size() > 0);
 
     // value is the last value written:
-    CHECK(obj.get_reader().get_value() == "9999");
+    CHECK(obj.get_reader().get_value() == "999");
 }
