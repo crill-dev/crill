@@ -15,8 +15,8 @@ namespace crill::test
     struct counted_t
     {
         static void reset() { instances_created = 0; instances_alive = 0; }
-        static std::size_t instances_created;
-        static std::size_t instances_alive;
+        inline static std::size_t instances_created;
+        inline static std::size_t instances_alive;
 
         std::size_t index;
         counted_t() : index(instances_created++) { ++instances_alive; }
