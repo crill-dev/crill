@@ -8,7 +8,7 @@
 
 #include <atomic>
 #include <mutex>
-#include <crill/wait.h>
+#include <crill/progressive_backoff_wait.h>
 
 namespace crill
 {
