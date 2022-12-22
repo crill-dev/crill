@@ -3,11 +3,11 @@
 // Distributed under the Boost Software License, Version 1.0.
 // (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
 
-#ifndef CRILL_WAITER_H
-#define CRILL_WAITER_H
+#ifndef CRILL_PROGRESSIVE_BACKOFF_WAIT_H
+#define CRILL_PROGRESSIVE_BACKOFF_WAIT_H
 
 #include <crill/platform.h>
-#include <crill/impl/wait_platform_specific.h>
+#include <crill/impl/progressive_backoff_wait_impl.h>
 
 namespace crill {
 
@@ -44,6 +44,6 @@ void progressive_backoff_wait(Predicate&& pred)
   #endif
 }
 
-#endif //CRILL_WAITER_H
-
 } // namespace crill
+
+#endif // CRILL_PROGRESSIVE_BACKOFF_WAIT_H

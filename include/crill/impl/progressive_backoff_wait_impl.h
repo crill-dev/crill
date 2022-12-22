@@ -3,8 +3,8 @@
 // Distributed under the Boost Software License, Version 1.0.
 // (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
 
-#ifndef CRILL_WAIT_PLATFORM_SPECIFIC_H
-#define CRILL_WAIT_PLATFORM_SPECIFIC_H
+#ifndef CRILL_PROGRESSIVE_BACKOFF_WAIT_IMPL_H
+#define CRILL_PROGRESSIVE_BACKOFF_WAIT_IMPL_H
 
 #include <thread>
 
@@ -87,4 +87,4 @@ namespace crill::impl
   #endif // CRILL_ARM_64BIT
 } // namespace crill::impl
 
-#endif //CRILL_WAIT_PLATFORM_SPECIFIC_H
+#endif //CRILL_PROGRESSIVE_BACKOFF_WAIT_IMPL_H

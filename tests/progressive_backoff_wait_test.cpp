@@ -5,7 +5,7 @@
 
 #include <atomic>
 #include <thread>
-#include <crill/wait.h>
+#include <crill/progressive_backoff_wait.h>
 #include <doctest/doctest.h>
 
 TEST_CASE("Waiting on a true predicate immediately returns")
