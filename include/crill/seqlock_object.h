@@ -18,7 +18,8 @@ public:
 
     seqlock_object()
     {
-        store_all_zeroes();
+        for (std::size_t i = 0; i < buffer_size; ++i)
+            data[i].store(0, std::memory_order_relaxed);
     }
 
     seqlock_object(T t)
@@ -76,15 +77,7 @@ public:
     }
 
 private:
-    void store_all_zeroes()
-    {
-        for (std::size_t i = 0; i < buffer_size; ++i)
-            data[i].store(0, std::memory_order_relaxed);
-    }
-
     static constexpr std::size_t buffer_size = (sizeof(T) + sizeof(std::size_t) - 1) / sizeof(std::size_t);
-    static constexpr std::size_t buffer_size_bytes = buffer_size * sizeof(std::size_t);
-
     std::atomic<std::size_t> data[buffer_size];
     std::atomic<std::size_t> seq = 0;
 
