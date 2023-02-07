@@ -6,6 +6,7 @@
 #ifndef CRILL_SEQLOCK_OBJECT_H
 #define CRILL_SEQLOCK_OBJECT_H
 
+#include <cstring>
 #include <atomic>
 
 namespace crill {
