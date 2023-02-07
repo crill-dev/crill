@@ -109,3 +109,10 @@ TEST_CASE("crill::seqlock_object")
         writer.join();
     }
 }
+
+TEST_CASE("crill::seqlock_object with size that is not a multiple of size_t")
+{
+    crill::seqlock_object<char> obj;
+    obj.store('x');
+    REQUIRE(obj.load() == 'x');
+}
