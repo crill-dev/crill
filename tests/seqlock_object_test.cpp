@@ -15,9 +15,9 @@ TEST_CASE("crill::seqlock_object")
 {
     struct coeffs
     {
-        std::size_t a;
-        bool b;
-        std::size_t c;
+        std::size_t a = 0;
+        bool b = false;
+        std::size_t c = 42;
     };
 
     static_assert(std::is_trivially_copyable_v<coeffs>);
@@ -29,8 +29,8 @@ TEST_CASE("crill::seqlock_object")
 
         coeffs c = obj.load();
         REQUIRE(c.a == 0);
-        REQUIRE(c.b == 0);
-        REQUIRE(c.c == false);
+        REQUIRE(c.b == false);
+        REQUIRE(c.c == 42);
     }
 
     SUBCASE("try_load default-constructed instance")
@@ -40,8 +40,8 @@ TEST_CASE("crill::seqlock_object")
         coeffs c;
         REQUIRE(obj.try_load(c));
         REQUIRE(c.a == 0);
-        REQUIRE(c.b == 0);
-        REQUIRE(c.c == false);
+        REQUIRE(c.b == false);
+        REQUIRE(c.c == 42);
     }
 
     SUBCASE("load")

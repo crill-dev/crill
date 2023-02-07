@@ -25,8 +25,7 @@ public:
     // Creates a seqlock_object with a default-constructed value.
     seqlock_object()
     {
-        for (std::size_t i = 0; i < buffer_size; ++i)
-            data[i].store(0, std::memory_order_relaxed);
+        store(T());
     }
 
     // Creates a seqlock_object with the given value.
