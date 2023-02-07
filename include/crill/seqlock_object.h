@@ -10,32 +10,43 @@
 
 namespace crill {
 
+// A portable C++ implementation of a seqlock inspired by Hans Boehm's paper
+// "Can Seqlocks Get Along With Programming Language Memory Models?"
+// and the C implementation in jemalloc.
+//
+// Writes are guaranteed wait-free but support only a single writer.
+// Reads are lock-free, but not wait-free, and support multiple readers.
 template <typename T>
 class seqlock_object
 {
 public:
     static_assert(std::is_trivially_copyable_v<T>);
 
+    // Creates a seqlock_object with a default-constructed value.
     seqlock_object()
     {
         for (std::size_t i = 0; i < buffer_size; ++i)
             data[i].store(0, std::memory_order_relaxed);
     }
 
+    // Creates a seqlock_object with the given value.
     seqlock_object(T t)
     {
         store(t);
     }
 
+    // Reads and returns the current value.
+    // Non-blocking guarantees: lock-free.
     T load() const noexcept
     {
         T t;
-        while (!try_load(t))
-            /* keep trying */;
-
+        while (!try_load(t)) /* keep trying */;
         return t;
     }
 
+    // Attempts to read the current value and write it into the passed-in object.
+    // Returns: true if the read succeeded, false otherwise.
+    // Non-blocking guarantees: wait-free.
     bool try_load(T& t) const noexcept
     {
         std::size_t buffer[buffer_size];
@@ -57,6 +68,8 @@ public:
         return true;
     }
 
+    // Updates the current value to the value passed in.
+    // Non-blocking guarantees: wait-free.
     void store(T t) noexcept
     {
         std::size_t buffer[buffer_size];
