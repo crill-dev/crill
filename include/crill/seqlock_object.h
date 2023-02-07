@@ -38,8 +38,8 @@ public:
     bool try_load(T& t) const noexcept
     {
         std::size_t buffer[buffer_size];
-        std::size_t seq1 = seq.load(std::memory_order_acquire);
 
+        std::size_t seq1 = seq.load(std::memory_order_acquire);
         if (seq1 % 2 != 0)
             return false;
 
@@ -52,19 +52,21 @@ public:
         if (seq1 != seq2)
             return false;
 
-        std::memcpy(&t, buffer, buffer_size_bytes);
+        std::memcpy(&t, buffer, sizeof(T));
         return true;
     }
 
     void store(T t) noexcept
     {
         std::size_t buffer[buffer_size];
-        std::memcpy(&buffer, &t, buffer_size_bytes);
+        if constexpr (sizeof(T) % sizeof(std::size_t) != 0)
+            buffer[buffer_size - 1] = 0;
+
+        std::memcpy(&buffer, &t, sizeof(T));
 
         std::size_t old_seq = seq.load(std::memory_order_relaxed);
         seq.store(old_seq + 1, std::memory_order_relaxed);
 
-        // Note: the following fence does not exist in Hans Boehm's paper:
         std::atomic_thread_fence(std::memory_order_release);
 
         for (std::size_t i = 0; i < buffer_size; ++i)
