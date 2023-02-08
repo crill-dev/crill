@@ -15,8 +15,9 @@ namespace crill {
 // "Can Seqlocks Get Along With Programming Language Memory Models?"
 // and the C implementation in jemalloc.
 //
-// Writes are guaranteed wait-free but support only a single writer.
-// Reads are lock-free, but not wait-free, and support multiple readers.
+// This version allows only a single writer. Writes are guaranteed wait-free.
+// It also allows multiple concurrent readers, which are wait-free against
+// each other, but can block if there is a concurrent write.
 template <typename T>
 class seqlock_object
 {
@@ -36,7 +37,8 @@ public:
     }
 
     // Reads and returns the current value.
-    // Non-blocking guarantees: lock-free.
+    // Non-blocking guarantees: wait-free if there are no concurrent writes,
+    // otherwise none.
     T load() const noexcept
     {
         T t;
