@@ -63,49 +63,36 @@ public:
     // Reading the value must happen through a reader class.
     class reader;
 
-    // read_ptr provides scoped read access to the value.
-    class read_ptr
+    // custom deleter for read-only unique_ptr
+    struct read_ptr_deleter
     {
-    public:
-        read_ptr(reader& rdr) noexcept
-          : rdr(rdr)
+        // constexpr read_ptr_deleter() noexcept = default;
+        explicit constexpr read_ptr_deleter(reader& rdr) noexcept : rdr(&rdr)
         {
             assert(rdr.min_epoch == 0);
-
             rdr.min_epoch.store(rdr.obj.current_epoch.load());
             assert(rdr.min_epoch =! 0);
+        };
 
-            value_read = rdr.obj.value.load();
-            assert(value_read);
-        }
+        read_ptr_deleter(const read_ptr_deleter &) noexcept = default;
+        read_ptr_deleter(read_ptr_deleter &&) noexcept = default;
+        read_ptr_deleter &operator=(read_ptr_deleter const &) noexcept = default;
+        read_ptr_deleter &operator=(read_ptr_deleter &&) noexcept = default;
 
-        ~read_ptr()
+        void operator()(const T*) const
         {
-            assert(rdr.min_epoch != 0);
-            rdr.min_epoch.store(0);
+            if (rdr)
+            {
+                assert(rdr->min_epoch != 0);
+                rdr->min_epoch.store(0);
+            }
         }
-
-        const T& operator*() const
-        {
-            assert(value_read);
-            return *value_read;
-        }
-
-        const T* operator->() const
-        {
-            assert(value_read);
-            return value_read;
-        }
-
-        read_ptr(read_ptr&&) = delete;
-        read_ptr& operator=(read_ptr&&) = delete;
-        read_ptr(const read_ptr&) = delete;
-        read_ptr& operator=(const read_ptr&) = delete;
 
     private:
-        reader& rdr;
-        T* value_read = nullptr;
+        reader* rdr;
     };
+
+    using read_ptr = std::unique_ptr<const T, read_ptr_deleter>;
 
     class reader
     {
@@ -132,12 +119,13 @@ public:
         // Non-blocking guarantees: wait-free.
         read_ptr read_lock() noexcept
         {
-            return read_ptr(*this);
+            auto deleter = read_ptr_deleter(*this);
+            return read_ptr(obj.value.load(), std::move(deleter));
         }
 
     private:
         friend class reclaim_object;
-        friend class read_ptr;
+        friend class read_ptr_deleter;
         reclaim_object& obj;
         std::atomic<std::uint64_t> min_epoch = 0;
     };

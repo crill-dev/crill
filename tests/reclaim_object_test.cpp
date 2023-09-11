@@ -42,13 +42,18 @@ TEST_CASE("reclaim_object::read_ptr")
     crill::reclaim_object<std::string> obj(3, 'x');
     auto reader = obj.get_reader();
 
-    SUBCASE("read_ptr is not copyable or movable")
+    SUBCASE("read_ptr is not copyable")
     {
         auto read_ptr = reader.read_lock();
         static_assert(!std::is_copy_constructible_v<decltype(read_ptr)>);
         static_assert(!std::is_copy_assignable_v<decltype(read_ptr)>);
-        static_assert(!std::is_move_constructible_v<decltype(read_ptr)>);
-        static_assert(!std::is_move_assignable_v<decltype(read_ptr)>);
+    }
+
+    SUBCASE("read_ptr is movable movable")
+    {
+        auto read_ptr = reader.read_lock();
+        static_assert(std::is_move_constructible_v<decltype(read_ptr)>);
+        static_assert(std::is_move_assignable_v<decltype(read_ptr)>);
     }
 
     SUBCASE("Dereference")
