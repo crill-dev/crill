@@ -66,7 +66,7 @@ public:
     // custom deleter for read-only unique_ptr
     struct read_ptr_deleter
     {
-        // constexpr read_ptr_deleter() noexcept = default;
+        constexpr read_ptr_deleter() noexcept = default;
         explicit constexpr read_ptr_deleter(reader& rdr) noexcept : rdr(&rdr)
         {
             assert(rdr.min_epoch == 0);
