@@ -12,6 +12,8 @@
 #include <mutex>
 #include <array>
 #include <vector>
+#include <cassert>
+#include <algorithm>
 
 namespace crill
 {

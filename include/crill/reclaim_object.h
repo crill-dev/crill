@@ -11,6 +11,8 @@
 #include <thread>
 #include <mutex>
 #include <memory>
+#include <algorithm>
+#include <cassert>
 #include <vector>
 #include <crill/atomic_unique_ptr.h>
 
