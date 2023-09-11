@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <thread>
+#include <atomic>
 #include <crill/utility.h>
 #include "tests.h"
 
