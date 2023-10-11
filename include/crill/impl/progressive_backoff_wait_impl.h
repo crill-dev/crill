@@ -20,13 +20,13 @@ namespace crill::impl
     template <std::size_t N0, std::size_t N1, std::size_t N2, typename Predicate>
     void progressive_backoff_wait_intel(Predicate&& pred)
     {
-        for (int i = 0; i < N0; ++i)
+        for (std::size_t i = 0; i < N0; ++i)
         {
             if (pred())
                 return;
         }
 
-        for (int i = 0; i < N1; ++i)
+        for (std::size_t i = 0; i < N1; ++i)
         {
             if (pred())
                 return;
@@ -36,7 +36,7 @@ namespace crill::impl
 
         while (true)
         {
-            for (int i = 0; i < N2; ++i)
+            for (std::size_t i = 0; i < N2; ++i)
             {
                 if (pred())
                     return;
@@ -64,7 +64,7 @@ namespace crill::impl
     template <std::size_t N0, std::size_t N1, typename Predicate>
     void progressive_backoff_wait_armv8(Predicate&& pred)
     {
-        for (int i = 0; i < N0; ++i)
+        for (std::size_t i = 0; i < N0; ++i)
         {
             if (pred())
                 return;
@@ -72,7 +72,7 @@ namespace crill::impl
 
         while (true)
         {
-            for (int i = 0; i < N1; ++i)
+            for (std::size_t i = 0; i < N1; ++i)
             {
                 if (pred())
                     return;
