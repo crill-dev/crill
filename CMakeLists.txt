@@ -5,6 +5,7 @@ include_directories(include)
 
 set(TESTS_SOURCES
         tests/main.cpp
+        tests/bytewise_atomic_memcpy_test.cpp
         tests/progressive_backoff_wait_test.cpp
         tests/spin_mutex_test.cpp
         tests/seqlock_object_test.cpp)
