@@ -39,6 +39,10 @@ void progressive_backoff_wait(Predicate&& pred)
     impl::progressive_backoff_wait_armv8<2, 750>(std::forward<Predicate>(pred));
     // approx. 2x10 ns (= 20 ns) and 750x1333 ns (~ 1 ms), respectively, on an
     // Apple Silicon Mac or an armv8 based phone.
+  #elif CRILL_ARM_32BIT
+    impl::progressive_backoff_wait_armv7<2, 7100>(std::forward<Predicate>(pred));
+    // approx. 2x10 ns (= 20 ns) and 7100x140 ns (~ 1 ms), respectively, when
+    // measured on an LG K32
   #else
     #error "Platform not supported!"
   #endif
