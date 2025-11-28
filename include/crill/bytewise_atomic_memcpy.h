@@ -69,10 +69,10 @@ namespace crill {
     {
         CRILL_PRE(order == std::memory_order_release || order == std::memory_order_relaxed);
 
-        std::atomic_thread_fence(order);
-
         char* dest_bytes = reinterpret_cast<char*>(dest);
         const char* src_bytes = reinterpret_cast<const char*>(source);
+
+        std::atomic_thread_fence(order);
 
         for (size_t i = 0; i < count; ++i) {
           #if __cpp_lib_atomic_ref
