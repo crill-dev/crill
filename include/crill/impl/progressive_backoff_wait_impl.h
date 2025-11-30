@@ -11,7 +11,11 @@
 #if CRILL_INTEL
   #include <emmintrin.h>
 #elif CRILL_ARM
-  #include <arm_acle.h>
+  #ifdef _WIN32
+    #include <intrin.h>
+  #else
+    #include <arm_acle.h>
+  #endif
 #endif
 
 namespace crill::impl

@@ -43,11 +43,12 @@ namespace crill {
 
         for (std::size_t i = 0; i < count; ++i) {
               #if __cpp_lib_atomic_ref
-                dest_bytes[i] = std::atomic_ref<char>(src_bytes[i]).load(std::memory_order_relaxed);
+                dest_bytes[i] = std::atomic_ref<const char>(src_bytes[i]).load(std::memory_order_relaxed);
               #elif CRILL_CLANG || CRILL_GCC
                 dest_bytes[i] = __atomic_load_n(src_bytes + i, __ATOMIC_RELAXED);
               #else
                 // No atomic_ref or equivalent functionality available on this platform!
+                #error "Platform not supported!"
               #endif
         }
 
@@ -82,6 +83,7 @@ namespace crill {
             __atomic_store_n(dest_bytes + i, src_bytes[i], __ATOMIC_RELAXED);
           #else
             // No atomic_ref or equivalent functionality available on this platform!
+            #error "Platform not supported!"
           #endif
         }
 
