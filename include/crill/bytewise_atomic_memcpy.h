@@ -12,7 +12,8 @@
 
 namespace crill {
     // These are implementations of the corresponding functions
-    // atomic_load/store_per_byte_memcpy from the Concurrency TS 2.
+    // atomic_load_per_byte_memcpy and atomic_store_per_byte_memcpy
+    // from the Concurrency TS 2.
     // They behave as if the source and dest bytes respectively
     // were individual atomic objects.
     // The implementations provided below is portable, but slow.

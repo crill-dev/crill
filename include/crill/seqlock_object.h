@@ -40,6 +40,8 @@ public:
     // Reads and returns the current value.
     // Non-blocking guarantees: wait-free if there are no concurrent writes,
     // otherwise none.
+    // Note: Instead of `load`, you may want to use the more efficient
+    // `crill::progressive_backoff_wait([&t]{ return try_load(t); })
     T load() const noexcept
     {
         T t;
@@ -59,10 +61,7 @@ public:
         crill::atomic_load_per_byte_memcpy(&t, &data, sizeof(data), std::memory_order_acquire);
 
         std::size_t seq2 = seq.load(std::memory_order_relaxed);
-        if (seq1 != seq2)
-            return false;
-
-        return true;
+        return seq1 == seq2;
     }
 
     // Updates the current value to the value passed in.
